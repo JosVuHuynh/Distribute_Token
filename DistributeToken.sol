@@ -20,10 +20,10 @@ interface IERC20 {
 
 contract MyToken is IERC20 {
 
-    string public constant NAME = "MyToken";
-    string public constant SYMBOL = "MT";
-    uint8 public constant DECIMAL = 18;
-    uint256 public _totalSuply = 100 ether;
+    string public constant name = "MyToken";
+    string public constant symbol = "MT";
+    uint8 public constant decimal = 18;
+    uint256 private _totalSuply = 100 ether;
 
     mapping(address => uint256) balances;
     mapping(address => mapping(address => uint256)) allowed;
@@ -77,25 +77,40 @@ contract MyToken is IERC20 {
 }
 
 contract TokenDistributor {
-    IERC20 public token;
+    MyToken public token = MyToken(0x9D7f74d0C41E726EC95884E0e97Fa6129e3b5E99);
+    
+    address public admin;
 
-    address public owner;
-  
-    modifier onlyOwner {
-        require(msg.sender == owner);
+    mapping(address => uint256) public claimers;
+
+    modifier onlyAdmin {
+        require(msg.sender == admin);
         _;
     }
 
     constructor() {
-        token = new MyToken();
-        owner = msg.sender;
+        admin = msg.sender;
     }
 
-    function distribute(address[] memory users, uint256 amount) onlyOwner public returns (bool){
-        for (uint i = 0; i < users.length; i++){
-            token.transfer(users[i], amount);
-        }
+    function createClaimers(address addr, uint256 totalReceive) onlyAdmin public returns (bool) {
+       claimers[addr] = totalReceive;
+       return true;
+    }
+
+
+    function claim() public returns (bool) {
+        require(claimers[msg.sender] > 0);
+        token.transfer(msg.sender, claimers[msg.sender]);
+        claimers[msg.sender] = 0;
         return true;
     }
+
+    //Distribute mutil token
+    // function distribute(address[] memory users, uint256 amount) onlyOwner public returns (bool){
+    //     for (uint i = 0; i < users.length; i++){
+    //         token.transfer(users[i], amount);
+    //     }
+    //     return true;
+    // }
 
 }
