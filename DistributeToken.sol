@@ -77,11 +77,18 @@ contract MyToken is IERC20 {
 }
 
 contract TokenDistributor {
-    MyToken public token = MyToken(0x9D7f74d0C41E726EC95884E0e97Fa6129e3b5E99);
+    MyToken public token;
     
-    address public admin;
+    address private admin;
 
-    mapping(address => uint256) public claimers;
+    struct TokenClaim {
+        address typeOfToken;
+        uint256 amount;
+    }
+
+    mapping(address =>TokenClaim[]) public claimers;
+
+    event AdminTransferred(address indexed previousAdmin, address indexed newAdmin);
 
     modifier onlyAdmin {
         require(msg.sender == admin);
@@ -92,18 +99,53 @@ contract TokenDistributor {
         admin = msg.sender;
     }
 
-    function createClaimers(address addr, uint256 totalReceive) onlyAdmin public returns (bool) {
-       claimers[addr] = totalReceive;
-       return true;
+    function setTokenDistribute(address tokenContract)  public {
+        token = MyToken(tokenContract);
     }
 
-
-    function claim() public returns (bool) {
-        require(claimers[msg.sender] > 0);
-        token.transfer(msg.sender, claimers[msg.sender]);
-        claimers[msg.sender] = 0;
+    function createClaimers(
+        address addressReceiver, 
+        address tokenContract, 
+        uint256 totalReceive
+    ) onlyAdmin public returns (bool) {
+        for (uint256 i; i < claimers[addressReceiver].length; i++) {
+            if (claimers[addressReceiver][i].typeOfToken == tokenContract) {
+                claimers[addressReceiver][i].amount = totalReceive;
+                return true;
+            }
+        }
+        claimers[addressReceiver].push(TokenClaim(tokenContract, totalReceive));
         return true;
     }
+
+    function claim() public returns (bool) {
+        require(claimers[msg.sender].length > 0);
+        for (uint256 i = 0; i < claimers[msg.sender].length; i++){
+            if (claimers[msg.sender][i].amount == 0) {
+                continue;
+            }
+            setTokenDistribute(claimers[msg.sender][i].typeOfToken);
+            token.transfer(msg.sender, claimers[msg.sender][i].amount);
+            claimers[msg.sender][i].amount = 0;
+        }
+        return true; 
+    }
+    
+    function transferAdmin(address newAdmin) public onlyAdmin {
+        _transferAdmin(newAdmin);
+    }
+
+    function _transferAdmin(address newAdmin) internal {
+        require(newAdmin != address(0));
+        emit AdminTransferred(admin, newAdmin);
+        admin = newAdmin;
+    }
+    
+    //distrubute for one type of token
+    // function createClaimers(address addr, uint256 totalReceive) onlyAdmin public returns (bool) {
+    //    claimers[addr] = totalReceive;
+    //    return true;
+    // }
 
     //Distribute mutil token
     // function distribute(address[] memory users, uint256 amount) onlyOwner public returns (bool){
